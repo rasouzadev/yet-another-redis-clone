@@ -1,18 +1,9 @@
+#include "utils.h"
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <unistd.h>
-
-static void die(const char *msg) {
-  perror(msg);
-  exit(EXIT_FAILURE);
-}
-
-static void msg(const char *msg) {
-  fprintf(stderr, "%s\n", msg);
-}
 
 static void do_something(int connfd) {
   char rbuf[64] = {};
@@ -30,7 +21,7 @@ static void do_something(int connfd) {
 int main() {
   // AF_INET for IPv4, AF_INET6 for IPv6
   // SOCK_STREAM for TCP, SOCK_DGRAM for 
-  int fd = socket(AF_INET, SOCK_STREAM, 1);
+  int fd = socket(AF_INET, SOCK_STREAM, 0);
 
   // 2nd and 3rd arguments specifies options to set
   // 4th argument is the option value
