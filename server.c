@@ -1,21 +1,41 @@
 #include "utils.h"
+#include <assert.h>
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <unistd.h>
 
-static void do_something(int connfd) {
-  char rbuf[64] = {};
-  ssize_t n = read(connfd, rbuf, sizeof(rbuf) - 1);
-  if (n < 0) {
-    msg("read() error");
-    return;
+static int32_t one_request(int connfd) {
+  // Max msg size + 4 byte header
+  char rbuf[4 + K_MAX_MSG];
+  // Errno is not set to 0 if syscall succeed by default
+  errno = 0;
+  int32_t err = read_full(connfd, rbuf, 4);
+  if (err) {
+    msg(errno == 0 ? "EOF" : "read() error");
+    return err;
   }
-  printf("client says: %s\n", rbuf);
+  uint32_t len = 0;
+  memcpy(&len, rbuf, 4);
+  if (len > K_MAX_MSG) {
+    msg("too long");
+    return -1;
+  }
+  err = read_full(connfd, &rbuf[4], len);
+  if (err) {
+    msg("read() error");
+    return err;
+  }
+  fprintf(stderr, "client says: %.*s\n", len, &rbuf[4]);
+  const char reply[] = "world";
+  char wbuf[4 + sizeof(reply)];
+  len = (uint32_t)strlen(reply);
 
-  char wbuf[] = "world";
-  write(connfd, wbuf, strlen(wbuf));
+  memcpy(wbuf, &len, 4);
+  memcpy(&wbuf[4], reply, len);
+  return write_all(connfd, wbuf, 4 + len);
 }
 
 int main() {
@@ -56,7 +76,15 @@ int main() {
       continue;
     }
 
-    do_something(connfd);
+    while (1) {
+      int32_t err = one_request(connfd);
+      if (err) {
+        break;
+      }
+    }
+
     close(connfd);
   }
+
+  return 0;
 }
